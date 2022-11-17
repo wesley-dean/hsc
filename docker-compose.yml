@@ -1,0 +1,24 @@
+---
+version: '3'
+services:
+  bastion:
+    container_name: bastion
+    build:
+      context: .
+      dockerfile: ./Dockerfile    
+    volumes:
+      - /home:/home/:ro
+      - /etc/passwd:/etc/passwd:ro
+      - /etc/shadow:/etc/shadow:ro
+      - /etc/group:/etc/group:ro
+      - /etc/timezone:/etc/timezone:ro
+    restart: unless-stopped
+    ports:
+      - "${port:-22}:${port:-22}"
+    environment:
+      - port=${port:-22}
+      - allow_users=${allow_users:-}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: 100m
