@@ -27,7 +27,8 @@ jobs:
           push: false
           tags: test-image:latest
 
-      - uses: addnab/docker-run-action@v3
+      - name: Run tests
+        uses: addnab/docker-run-action@v3
         with:
-        image: test-image:latest
-        run: "-t"
+          image: test-image:latest
+          run: "-t"
