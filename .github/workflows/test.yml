@@ -24,16 +24,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Build image
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          tags: test
+      - name: Build and test
+        run: /bin/sh -c 'docker build -t test . && docker run --rm -it test -t'
 
-      - name: Run tests
-        uses: addnab/docker-run-action@v3
-        with:
-          image: test
-          run: -t
+#      - name: Build image
+#        uses: docker/build-push-action@v3
+#        with:
+#          context: .
+#          file: ./Dockerfile
+#          push: false
+#          tags: test
+#
+#      - name: Run tests
+#        uses: addnab/docker-run-action@v3
+#        with:
+#          image: test
+#          run: -t
