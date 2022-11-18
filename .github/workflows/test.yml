@@ -25,7 +25,7 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Build and test
-        run: /bin/sh -c 'docker build -t test . && docker run --rm -it test -t'
+        run: /bin/sh -c 'docker build -t test . && docker run --rm test -t'
 
 #      - name: Build image
 #        uses: docker/build-push-action@v3
