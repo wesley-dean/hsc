@@ -1,6 +1,7 @@
 FROM debian:latest
 RUN apt-get update \
   && apt-get install -fy \
+    openssh-client \
     openssh-server \
     libqrencode4 \
     libpam-google-authenticator \
