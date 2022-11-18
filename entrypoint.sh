@@ -13,6 +13,10 @@ pam_config_file="${pam_config:-/etc/pam.d/common-auth}"
 pam_control="${pam_control:-required}"
 pam_nullok="${pam_nullok:-nullok}"
 
+sshd_host_key_directory="${sshd_host_key_directory:-/etc/ssl/private/sshd/}"
+sshd_privsep_directory="${sshd_privsep_directory:-/run/sshd}"
+sshd_executable="${sshd_executable:-/usr/sbin/sshd}"
+
 line_in_file() {
   filename="${1?No file provided}"
   shift
@@ -24,17 +28,34 @@ line_in_file() {
   shift
 
   if grep -qiEe "${test_line}" "${config_file}" ; then
-    sed -i~ -Ee "s/${test_line}/${content_line}/I" "${filename}"
+    sed -i~ -Ee "s|${test_line}|${content_line}|I" "${filename}"
   else
     echo "${content_line}" >> "${filename}"
   fi
 }
 
-
-if [ ! -f /etc/ssh/host_rsa_key ] \
-|| [ ! -f /etc/ssh/host_dsa_key ] ; then
-  dpkg-reconfigure openssh-server
+if [ ! -d "${sshd_host_key_directory}" ] ; then
+  mkdir -p "${sshd_host_key_directory}"
 fi
+
+if [ ! -f "${sshd_host_key_directory}ssh_host_rsa_key" ] ; then
+  ssh-keygen -b 4096 -f "${sshd_host_key_directory}ssh_host_rsa_key" -t rsa -N ""
+fi
+
+if [ ! -f "${sshd_host_key_directory}ssh_host_dsa_key" ] ; then
+  ssh-keygen -b 1024 -f "${sshd_host_key_directory}ssh_host_dsa_key" -t dsa -N ""
+fi
+
+
+if [ ! -f "${sshd_host_key_directory}ssh_host_ecdsa_key" ] ; then
+  ssh-keygen -b 521 -f "${sshd_host_key_directory}ssh_host_ecdsa_key" -t ecdsa -N ""
+fi
+
+if [ ! -f "${sshd_host_key_directory}ssh_host_ed25519_key" ] ; then
+  ssh-keygen -b 4096 -f "${sshd_host_key_directory}ssh_host_ed25519_key" -t ed25519 -N ""
+fi
+
+chmod 600 ${sshd_host_key_directory}ssh_host*
 
 line_in_file \
   "${pam_config_file}" \
@@ -45,6 +66,21 @@ line_in_file \
   "${pam_config_file}" \
   '^\s*#?\s*auth\b.*\bpam_permit\.so.*' \
   "auth ${pam_control} pam_permit.so"
+
+line_in_file \
+  "${config_file}" \
+  '^\s*#\s*HostKey.*ssh_host_rsa_key' \
+  "HostKey ${sshd_host_key_directory}ssh_host_rsa_key"
+
+line_in_file \
+  "${config_file}" \
+  '^\s*#\s*HostKey.*ssh_host_ecdsa_key' \
+  "HostKey ${sshd_host_key_directory}ssh_host_ecdsa_key"
+
+line_in_file \
+  "${config_file}" \
+  '^\s*#\s*HostKey.*ssh_host_ed25519_key' \
+  "HostKey ${sshd_host_key_directory}ssh_host_ed25519_key"
 
 line_in_file \
   "${config_file}" \
@@ -73,10 +109,9 @@ if [ -n "${allow_users}" ] ; then
     "AllowUsers ${allow_users}"
 fi
 
+if [ ! -d "${sshd_privsep_directory}" ] ; then
+  mkdir -p "${sshd_privsep_directory}"
+fi
+
 cat "${config_file}"
-
-service ssh restart
-
-while true ; do
-  sleep 1
-done
+"${sshd_executable}" -e "$@"

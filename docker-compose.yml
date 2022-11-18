@@ -12,10 +12,11 @@ services:
       - ${shadow_filename:-/etc/shadow}:/etc/shadow:${shadow_filename_ro:-ro}
       - ${group_filename:-/etc/group}:/etc/group:${group_filename_ro:-ro}
       - ${timezone_filename:-/etc/timezone}:/etc/timezone:${timezone_filename_ro:-ro}
+      - ssh_host_keys:/etc/ssl/private/sshd/
     restart: unless-stopped
     network_mode: host
-#    ports:
-#      - "${port:-22}:${port:-22}"
+    entrypoint: ["/entrypoint.sh"]
+    command: ["-D", "-e"]
     environment:
       - port=${port:-22}
       - allow_users=${allow_users:-}
@@ -23,3 +24,5 @@ services:
       driver: "json-file"
       options:
         max-size: 100m
+volumes:
+  ssh_host_keys:
