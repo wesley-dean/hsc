@@ -1,0 +1,5 @@
+*~
+reports/
+megalinter-reports/
+venv/
+.env

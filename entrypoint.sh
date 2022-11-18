@@ -1,34 +1,81 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
+set -euo pipefail
+
+config_file="${config_file:-/etc/ssh/sshd_config}"
+
+password_authentication="${password_authentication:-no}"
+permit_root_login="${permit_root_login:-no}"
 port="${port:-22}"
 timeout="${timeout:-300}"
 allow_users="${allow_users:-}"
+pam_config_file="${pam_config:-/etc/pam.d/common-auth}"
+pam_control="${pam_control:-required}"
+pam_nullok="${pam_nullok:-nullok}"
 
-if [ ! -f /etc/ssh/host_rsa_key ] ; then
+line_in_file() {
+  filename="${1?No file provided}"
+  shift
+
+  test_line="${1?No test provided}"
+  shift
+
+  content_line="${1?No content line provided}"
+  shift
+
+  if grep -qiEe "${test_line}" "${config_file}" ; then
+    sed -i~ -Ee "s/${test_line}/${content_line}/I" "${filename}"
+  else
+    echo "${content_line}" >> "${filename}"
+  fi
+}
+
+
+if [ ! -f /etc/ssh/host_rsa_key ] \
+|| [ ! -f /etc/ssh/host_dsa_key ] ; then
   dpkg-reconfigure openssh-server
 fi
 
-grep -qiEe '^\s*#?\s*PasswordAuthentication' /etc/ssh/sshd_config || printf "PasswordAuthentication no\n" >> /etc/ssh/sshd_config
-grep -qiEe '^\s*#?\s*PermitRootLogin' /etc/ssh/sshd_config || printf "PermitRootLogin no\n" >> /etc/ssh/sshd_config
-grep -qiEe '^\s*#?\s*Port' /etc/ssh/sshd_config || printf "Port %s\n" "$port" >> /etc/ssh/sshd_config
-grep -qiEe '^\s*#?\s*ClientAliveInterval' /etc/ssh_sshd_config || printf "ClientAliveInterval 0\n" >> /etc/ssh/sshd_config
+line_in_file \
+  "${pam_config_file}" \
+  '^\s*#?\s*auth\b.*\bpam_google_authenticator\.so.*' \
+  "auth ${pam_control} pam_google_authenticator.so ${pam_nullok}"
 
-sed -i~ \
-  -Ee 's/^[[:space:]]*#*([[:space:]]*PasswordAuthentication[[:space:]]*).*/\1 no/gI' \
-  -Ee 's/^[[:space:]]*#([[:space:]]*PermitRootLogin[[:space:]]*).*/\1 no/gI' \
-  -Ee "s/^[[:space:]]*#([[:space:]]*Port[[:space:]]*).*/\1 ${port}/gI" \
-  -Ee "s/^[[:space:]]*#([[:space:]]*ClientAliveInterval[[:space:]]*).*/\1 ${timeout}/gI" \
-  /etc/ssh/sshd_config
+line_in_file \
+  "${pam_config_file}" \
+  '^\s*#?\s*auth\b.*\bpam_permit\.so.*' \
+  "auth ${pam_control} pam_permit.so"
+
+line_in_file \
+  "${config_file}" \
+  '^\s*#?\s*PasswordAuthentication.*' \
+  "PasswordAuthentication ${password_authentication}"
+
+line_in_file \
+  "${config_file}" \
+  '^\s*#?\s*PermitRootLogin.*' \
+  "PermitRootLogin ${permit_root_login}"
+
+line_in_file \
+  "${config_file}" \
+  '^\s*#?\s*Port.*' \
+  "Port ${port}"
+
+line_in_file \
+  "${config_file}" \
+  '^\s*#?\s*ClientAliveInterval.*' \
+  "ClientAliveInterval ${timeout}"
 
 if [ -n "${allow_users}" ] ; then
-  sed -i~ \
-    -Ee "s/^([[:space:]]*#[[:space:]]*AllowUsers[[:space:]]*).*/\1 ${allow_users}/gI" \
-    /etc/ssh/sshd_config
+  line_in_file \
+    "${config_file}" \
+    '^\s*#?\s*AllowUsers.*' \
+    "AllowUsers ${allow_users}"
 fi
 
-cat /etc/ssh/sshd_config
+cat "${config_file}"
 
-service ssh start
+service ssh restart
 
 while true ; do
   sleep 1
