@@ -27,11 +27,13 @@ jobs:
       - name: Build image
         uses: docker/build-push-action@v3
         with:
+          context: .
+          file: ./Dockerfile
           push: false
-          tags: test-image:latest
+          tags: test
 
       - name: Run tests
         uses: addnab/docker-run-action@v3
         with:
-          image: test-image:latest
-          run: "-t"
+          image: test
+          run: -t
