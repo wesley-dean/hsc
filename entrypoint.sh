@@ -9,6 +9,7 @@ permit_root_login="${permit_root_login:-no}"
 port="${port:-22}"
 timeout="${timeout:-300}"
 allow_users="${allow_users:-}"
+
 pam_config_file="${pam_config:-/etc/pam.d/common-auth}"
 pam_control="${pam_control:-required}"
 pam_nullok="${pam_nullok:-nullok}"
@@ -34,28 +35,41 @@ line_in_file() {
   fi
 }
 
+
+# Setup SSH host keys (if needed)
+
+
 if [ ! -d "${sshd_host_key_directory}" ] ; then
   mkdir -p "${sshd_host_key_directory}"
 fi
 
 if [ ! -f "${sshd_host_key_directory}ssh_host_rsa_key" ] ; then
   ssh-keygen -b 4096 -f "${sshd_host_key_directory}ssh_host_rsa_key" -t rsa -N ""
+  chown root:root "${sshd_host_key_directory}ssh_host_rsa_key"
+  chmod 600 "${sshd_host_key_directory}ssh_host_rsa_key"
 fi
 
 if [ ! -f "${sshd_host_key_directory}ssh_host_dsa_key" ] ; then
   ssh-keygen -b 1024 -f "${sshd_host_key_directory}ssh_host_dsa_key" -t dsa -N ""
+  chown root:root "${sshd_host_key_directory}ssh_host_dsa_key"
+  chmod 600 "${sshd_host_key_directory}ssh_host_dsa_key"
 fi
-
 
 if [ ! -f "${sshd_host_key_directory}ssh_host_ecdsa_key" ] ; then
   ssh-keygen -b 521 -f "${sshd_host_key_directory}ssh_host_ecdsa_key" -t ecdsa -N ""
+  chown root:root "${sshd_host_key_directory}ssh_host_ecdsa_key"
+  chmod 600 "${sshd_host_key_directory}ssh_host_ecdsa_key"
 fi
 
 if [ ! -f "${sshd_host_key_directory}ssh_host_ed25519_key" ] ; then
   ssh-keygen -b 4096 -f "${sshd_host_key_directory}ssh_host_ed25519_key" -t ed25519 -N ""
+  chown root:root "${sshd_host_key_directory}ssh_host_ed25519_key"
+  chmod 600 "${sshd_host_key_directory}ssh_host_ed25519_key"
 fi
 
-chmod 600 ${sshd_host_key_directory}ssh_host*
+
+# Configure Google Authenticator libpam library
+
 
 line_in_file \
   "${pam_config_file}" \
@@ -67,10 +81,19 @@ line_in_file \
   '^\s*#?\s*auth\b.*\bpam_permit\.so.*' \
   "auth ${pam_control} pam_permit.so"
 
+
+# specify host keys
+
+
 line_in_file \
   "${config_file}" \
   '^\s*#\s*HostKey.*ssh_host_rsa_key' \
   "HostKey ${sshd_host_key_directory}ssh_host_rsa_key"
+
+line_in_file \
+  "${config_file}" \
+  '^\s*#\s*HostKey.*ssh_host_dsa_key' \
+  "HostKey ${sshd_host_key_directory}ssh_host_dsa_key"
 
 line_in_file \
   "${config_file}" \
@@ -81,6 +104,10 @@ line_in_file \
   "${config_file}" \
   '^\s*#\s*HostKey.*ssh_host_ed25519_key' \
   "HostKey ${sshd_host_key_directory}ssh_host_ed25519_key"
+
+
+# Configure sshd
+
 
 line_in_file \
   "${config_file}" \
@@ -109,9 +136,16 @@ if [ -n "${allow_users}" ] ; then
     "AllowUsers ${allow_users}"
 fi
 
+
+# make sure SSH's privilege separation directory exists
+
+
 if [ ! -d "${sshd_privsep_directory}" ] ; then
   mkdir -p "${sshd_privsep_directory}"
 fi
 
-cat "${config_file}"
+
+# run sshd with whatever options are set to us (e.g., -De or -t)
+
+
 "${sshd_executable}" -e "$@"
