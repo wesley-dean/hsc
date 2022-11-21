@@ -9,6 +9,6 @@ RUN apt-get update \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* \
   && /bin/sh -c "rm -f /etc/ssh/ssh_host_*_key"
-COPY jaild.local /etc/fail2ban/
-COPY entrypoint.sh /
+COPY sshd.local /etc/fail2ban/jail.d/sshd.local
+COPY entrypoint.sh /entrypoint.sh
 ENTRYPOINT /entrypoint.sh
