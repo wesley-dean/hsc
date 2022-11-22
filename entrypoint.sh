@@ -23,13 +23,21 @@ line_in_file() {
   filename="${1?No file provided}"
   shift
 
-  test_line="${1?No test provided}"
+  test_line="$(echo "${1?No test provided}" | sed -Ee 's|/|\\/|g')"
   shift
 
-  content_line="${1?No content line provided}"
+  content_line="$(echo "${1?No content line provided}" | sed -Ee 's|/|\\/|g')"
   shift
 
-  sed -i~ -nEe "/${test_line}/!p; \$a${content_line}" "$filename"
+  if [ ! -f "${filename}" ] ; then
+    directory="$(dirname "${filename}")"
+    if [ ! -d "${directory}" ] ; then
+      mkdir -p "${directory}"
+    fi
+    touch "${filename}"
+  fi
+
+  sed -i~ -Ee "/^${test_line}/{h;s/${test_line}/${content_line}/};\${x;/^$/{s//${content_line}/;H};x}" "${filename}"
 
 }
 
@@ -143,6 +151,4 @@ fi
 
 
 # run sshd with whatever options are set to us (e.g., -De or -t)
-
-cat "${config_file}"
-#"${sshd_executable}" -e "$@"
+"${sshd_executable}" -e "$@"
