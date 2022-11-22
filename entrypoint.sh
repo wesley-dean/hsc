@@ -19,6 +19,7 @@ sshd_privsep_directory="${sshd_privsep_directory:-/run/sshd}"
 sshd_executable="${sshd_executable:-/usr/sbin/sshd}"
 
 line_in_file() {
+
   filename="${1?No file provided}"
   shift
 
@@ -28,13 +29,9 @@ line_in_file() {
   content_line="${1?No content line provided}"
   shift
 
-  if grep -qiEe "${test_line}" "${config_file}" ; then
-    sed -i~ -Ee "s|${test_line}|${content_line}|I" "${filename}"
-  else
-    echo "${content_line}" >> "${filename}"
-  fi
-}
+  sed -i~ -nEe "/${test_line}/!p; \$a${content_line}" "$filename"
 
+}
 
 # Setup SSH host keys (if needed)
 
@@ -73,12 +70,12 @@ fi
 
 line_in_file \
   "${pam_config_file}" \
-  '^\s*#?\s*auth\b.*\bpam_google_authenticator\.so.*' \
+  '^[[:space:]#]*auth\b.*pam_google_authenticator\.so.*' \
   "auth ${pam_control} pam_google_authenticator.so ${pam_nullok}"
 
 line_in_file \
   "${pam_config_file}" \
-  '^\s*#?\s*auth\b.*\bpam_permit\.so.*' \
+  '^[[:space:]#]*auth\b.*\bpam_permit\.so.*' \
   "auth ${pam_control} pam_permit.so"
 
 
@@ -87,22 +84,22 @@ line_in_file \
 
 line_in_file \
   "${config_file}" \
-  '^\s*#\s*HostKey.*ssh_host_rsa_key' \
+  '^[[:space:]#]*HostKey.*ssh_host_rsa_key' \
   "HostKey ${sshd_host_key_directory}ssh_host_rsa_key"
 
 line_in_file \
   "${config_file}" \
-  '^\s*#\s*HostKey.*ssh_host_dsa_key' \
+  '^[[:space:]#]*HostKey.*ssh_host_dsa_key' \
   "HostKey ${sshd_host_key_directory}ssh_host_dsa_key"
 
 line_in_file \
   "${config_file}" \
-  '^\s*#\s*HostKey.*ssh_host_ecdsa_key' \
+  '^[[:space:]#]*HostKey.*ssh_host_ecdsa_key' \
   "HostKey ${sshd_host_key_directory}ssh_host_ecdsa_key"
 
 line_in_file \
   "${config_file}" \
-  '^\s*#\s*HostKey.*ssh_host_ed25519_key' \
+  '^[[:space:]#]*HostKey.*ssh_host_ed25519_key' \
   "HostKey ${sshd_host_key_directory}ssh_host_ed25519_key"
 
 
@@ -111,28 +108,28 @@ line_in_file \
 
 line_in_file \
   "${config_file}" \
-  '^\s*#?\s*PasswordAuthentication.*' \
+  '^[[:space:]#]*PasswordAuthentication.*' \
   "PasswordAuthentication ${password_authentication}"
 
 line_in_file \
   "${config_file}" \
-  '^\s*#?\s*PermitRootLogin.*' \
+  '^[[:space:]#]*PermitRootLogin.*' \
   "PermitRootLogin ${permit_root_login}"
 
 line_in_file \
   "${config_file}" \
-  '^\s*#?\s*Port.*' \
+  '^[[:space:]#]*Port.*' \
   "Port ${port}"
 
 line_in_file \
   "${config_file}" \
-  '^\s*#?\s*ClientAliveInterval.*' \
+  '^[[:space:]#]*ClientAliveInterval.*' \
   "ClientAliveInterval ${timeout}"
 
 if [ -n "${allow_users}" ] ; then
   line_in_file \
     "${config_file}" \
-    '^\s*#?\s*AllowUsers.*' \
+    '^[[:space:]#]*AllowUsers.*' \
     "AllowUsers ${allow_users}"
 fi
 
@@ -147,5 +144,5 @@ fi
 
 # run sshd with whatever options are set to us (e.g., -De or -t)
 
-
-"${sshd_executable}" -e "$@"
+cat "${config_file}"
+#"${sshd_executable}" -e "$@"
