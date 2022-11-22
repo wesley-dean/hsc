@@ -18,7 +18,42 @@ sshd_host_key_directory="${sshd_host_key_directory:-/etc/ssl/private/sshd/}"
 sshd_privsep_directory="${sshd_privsep_directory:-/run/sshd}"
 sshd_executable="${sshd_executable:-/usr/sbin/sshd}"
 
-line_in_file() {
+## @fn replace_line_in_file()
+## @brief given a regular expression for a line, replace it with a new line
+## @details
+## This is largely modeled after `line_in_file` from Ansible.  One provides
+## a test (a regular expression) and a line.  For lines that match the test
+## pattern, replace them with the content line.  Typically the content line
+## would match the pattern so that once the replacement is performed, any
+## subsequent attempts wouldn't result in changing the file, adding the
+## line multiple times, etc..
+##
+## At its core, replace_line_in_file() uses GNU sed's extended regular
+## expressions (`-E`).  Therefore, if one needs to provide an alternative
+## executable (e.g., if running on BSD and one needs to use `gsed` instead
+## of the system's `sed` command), the `sed_command` environment variable
+## may be used to specify the alternate command.
+##
+## The values in the test and content lines have forward slashes escaped
+## such that '/' becomes '\/'.  Therefore, it' unnecessary to perform the
+## escaping manually.
+##
+## If there was no match for the test line, the content line will be
+## appended to the end of the file.  If the file did not exist when
+## called, it will be created as an empty file (i.e., via `touch`).
+## @param filename the name of the file to edit
+## @param test_line the regular expression to replace
+## @param content_line the line used to replace test_line matches
+## @retval 0 (True) if the replacement was successful
+## @retval 1 (False) if something failed
+## @par Examples
+## @code
+## replace_line_in_file \
+##   "/etc/ssh/sshd_config" \
+##   "^[[:space:]#][Pp][Oo][Rr][Tt][[:space:]]+" \
+##   "Port 2222"
+## @endcode
+replace_line_in_file() {
 
   filename="${1?No file provided}"
   shift
@@ -29,17 +64,16 @@ line_in_file() {
   content_line="$(echo "${1?No content line provided}" | sed -Ee 's|/|\\/|g')"
   shift
 
+  sed_command="${sed_command:-sed}"
+
   if [ ! -f "${filename}" ] ; then
-    directory="$(dirname "${filename}")"
-    if [ ! -d "${directory}" ] ; then
-      mkdir -p "${directory}"
-    fi
     touch "${filename}"
   fi
 
-  sed -i~ -Ee "/^${test_line}/{h;s/${test_line}/${content_line}/};\${x;/^$/{s//${content_line}/;H};x}" "${filename}"
+  "${sed_command}" -i~ -Ee "/^${test_line}/{h;s/${test_line}/${content_line}/};\${x;/^$/{s//${content_line}/;H};x}" "${filename}"
 
 }
+
 
 # Setup SSH host keys (if needed)
 
@@ -76,12 +110,12 @@ fi
 # Configure Google Authenticator libpam library
 
 
-line_in_file \
+replace_line_in_file \
   "${pam_config_file}" \
   '^[[:space:]#]*auth\b.*pam_google_authenticator\.so.*' \
   "auth ${pam_control} pam_google_authenticator.so ${pam_nullok}"
 
-line_in_file \
+replace_line_in_file \
   "${pam_config_file}" \
   '^[[:space:]#]*auth\b.*\bpam_permit\.so.*' \
   "auth ${pam_control} pam_permit.so"
@@ -90,22 +124,22 @@ line_in_file \
 # specify host keys
 
 
-line_in_file \
+replace_line_in_file \
   "${config_file}" \
   '^[[:space:]#]*HostKey.*ssh_host_rsa_key' \
   "HostKey ${sshd_host_key_directory}ssh_host_rsa_key"
 
-line_in_file \
+replace_line_in_file \
   "${config_file}" \
   '^[[:space:]#]*HostKey.*ssh_host_dsa_key' \
   "HostKey ${sshd_host_key_directory}ssh_host_dsa_key"
 
-line_in_file \
+replace_line_in_file \
   "${config_file}" \
   '^[[:space:]#]*HostKey.*ssh_host_ecdsa_key' \
   "HostKey ${sshd_host_key_directory}ssh_host_ecdsa_key"
 
-line_in_file \
+replace_line_in_file \
   "${config_file}" \
   '^[[:space:]#]*HostKey.*ssh_host_ed25519_key' \
   "HostKey ${sshd_host_key_directory}ssh_host_ed25519_key"
@@ -114,28 +148,28 @@ line_in_file \
 # Configure sshd
 
 
-line_in_file \
+replace_line_in_file \
   "${config_file}" \
   '^[[:space:]#]*PasswordAuthentication.*' \
   "PasswordAuthentication ${password_authentication}"
 
-line_in_file \
+replace_line_in_file \
   "${config_file}" \
   '^[[:space:]#]*PermitRootLogin.*' \
   "PermitRootLogin ${permit_root_login}"
 
-line_in_file \
+replace_line_in_file \
   "${config_file}" \
   '^[[:space:]#]*Port.*' \
   "Port ${port}"
 
-line_in_file \
+replace_line_in_file \
   "${config_file}" \
   '^[[:space:]#]*ClientAliveInterval.*' \
   "ClientAliveInterval ${timeout}"
 
 if [ -n "${allow_users}" ] ; then
-  line_in_file \
+  replace_line_in_file \
     "${config_file}" \
     '^[[:space:]#]*AllowUsers.*' \
     "AllowUsers ${allow_users}"
