@@ -1,4 +1,4 @@
-FROM debian:11
+FROM debian:12
 RUN apt-get update \
   && apt-get install --no-install-recommends -fy \
     openssh-client=1:8.4p1-5+deb11u1 \
